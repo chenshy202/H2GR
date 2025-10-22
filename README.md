@@ -1,11 +1,20 @@
 # Hybrid Hyperbolic Graph Reasoning modules (H2GR)
-We introduce Hybrid Hyperbolic Graph Reasoning modules (H2GR) that incorporate multi-view semantic correlations into node embeddings via Poincare and Lorentz graph reasoning modules to enhance their semantic representational ability. We also propose an interactive mechanism to gather different features of two modules across multiple layers. To evaluate the performance of H2GR, we conduct experiments on three large-scale recommendation datasets.
+This repository is the official implementation for our paper "Hybrid Hyperbolic Graph Reasoning for Large-scale Recommendation". We introduce Hybrid Hyperbolic Graph Reasoning modules (H2GR) that incorporate multi-view semantic correlations into node embeddings via Poincare and Lorentz graph reasoning modules to enhance their semantic representational ability. We also propose an interactive mechanism to gather different features of two modules across multiple layers. To evaluate the performance of H2GR, we conduct experiments on three large-scale recommendation datasets.
 
 <div align=center>
 <img src=./fig/framework.png width="100%" ></img>
 </div>
 
+## Manuscript
 
+A full description of the model, methodology, and experimental results can be found in our unpublished manuscript.
+
+**Title:** Hybrid Hyperbolic Graph Reasoning for Large-scale Recommendation  
+**Authors:** Shiyu Chen, W. Yu, Y. Wen, F. Zheng, N. Xiao
+
+*A draft of the paper is available upon request. To request a copy, please email chenshy202@gmail.com.*
+
+---
 ## Datasets
 We use three widely adopted datasets: Alibaba-iFashion, Yelp2018, and Last-FM for our experiments. Following the preprocessing procedure described in the paper ["Learning Intents behind Interactions with Knowledge Graph for Recommendation"](https://arxiv.org/pdf/2102.07057), we process all raw data accordingly. The processed datasets are stored in the `data/` directory.
 
