@@ -20,9 +20,9 @@ def parse_args():
     parser.add_argument('--lr', type=float, default=0.0001, help='learning rate')
     parser.add_argument("--inverse_r", type=bool, default=True, help="consider inverse relation or not")
     parser.add_argument("--node_dropout", type=bool, default=True, help="consider node dropout or not")
-    parser.add_argument("--node_dropout_rate", type=float, default=0.5, help="ratio of node dropout")
+    parser.add_argument("--node_dropout_rate", type=float, default=0.1, help="ratio of node dropout")
     parser.add_argument("--mess_dropout", type=bool, default=True, help="consider message dropout or not")
-    parser.add_argument("--mess_dropout_rate", type=float, default=0.1, help="ratio of node dropout")
+    parser.add_argument("--edge_sampling_rate", type=float, default=0.5, help="ratio of edge sampling")
     parser.add_argument("--batch_test_flag", type=bool, default=True, help="use gpu or not")
     parser.add_argument("--channel", type=int, default=64, help="hidden channels for model")
     parser.add_argument("--cuda", type=bool, default=True, help="use gpu or not")
@@ -30,9 +30,6 @@ def parse_args():
     parser.add_argument('--Ks', nargs='?', default='[20, 40]', help='Output sizes of every layer')
     parser.add_argument('--test_flag', nargs='?', default='part',
                         help='Specify the test type from {part, full}, indicating whether the reference is done in mini-batch')
-
-    # ===== relation context ===== #
-    parser.add_argument('--context_hops', type=int, default=3, help='number of context hops')
 
     parser.add_argument('--num_neg_sample', type=int, default=200, help='the number of negative sample')
     parser.add_argument('--margin', type=float, default=0.6, help='the margin of contrastive_loss')

@@ -123,20 +123,19 @@ class GraphConv(nn.Module):
     """
     def __init__(self, channel, n_users,
                  n_items, n_relations, interact_mat,
-                 device, node_dropout_rate=0.5, mess_dropout_rate=0.1):
+                 device, node_dropout_rate=0.1, edge_sampling_rate=0.5):
         super(GraphConv, self).__init__()
         self.interact_mat = interact_mat
         self.n_relations = n_relations
         self.n_users = n_users
         self.n_items = n_items
         self.node_dropout_rate = node_dropout_rate
-        self.mess_dropout_rate = mess_dropout_rate
+        self.edge_sampling_rate = edge_sampling_rate
         self.device = device
         self.convs = Aggregator(n_users=n_users, n_items=n_items).to(self.device)
 
         relation_weight = nn.init.xavier_uniform_(torch.empty(n_relations - 1, channel))  # not include interact
         self.relation_weight = nn.Parameter(relation_weight)  # [n_relations - 1, in_channel]
-        self.dropout = nn.Dropout(p=mess_dropout_rate)  # mess dropout
 
     def _edge_sampling(self, edge_index, edge_type, rate=0.5):
         # edge_index: [2, -1]
@@ -184,7 +183,7 @@ class GraphConv(nn.Module):
 
         """node dropout"""
         if node_dropout:
-            edge_index, edge_type = self._edge_sampling(edge_index, edge_type, 0.5)
+            edge_index, edge_type = self._edge_sampling(edge_index, edge_type, self.edge_sampling_rate)
             interact_mat = self._sparse_dropout(interact_mat, 0.5)
 
         entity_res_emb = entity_emb  # [n_entity, channel]
@@ -195,7 +194,7 @@ class GraphConv(nn.Module):
         entity_emb, user_emb, item_emb_cf = self.convs(entity_emb, user_emb, item_emb_cf,
                                             edge_index, edge_type, interact_mat,
                                             self.relation_weight, flag)
-        entity_agg, user_agg, item_agg_cf = self.Dr_Norm(user_emb, entity_emb, item_emb_cf, mess_dropout, 0.03)
+        entity_agg, user_agg, item_agg_cf = self.Dr_Norm(user_emb, entity_emb, item_emb_cf, mess_dropout, self.node_dropout_rate)
             
 
         entity_res_emb = torch.add(entity_res_emb, entity_agg)
@@ -207,7 +206,7 @@ class GraphConv(nn.Module):
         entity_emb, user_emb, item_emb_cf = self.convs(entity_agg, user_agg, item_agg_cf,
                                             edge_index, edge_type, interact_mat,
                                             self.relation_weight, flag)                                 
-        entity_agg, user_agg, item_agg_cf = self.Dr_Norm(user_emb, entity_emb, item_emb_cf, mess_dropout, 0.03)
+        entity_agg, user_agg, item_agg_cf = self.Dr_Norm(user_emb, entity_emb, item_emb_cf, mess_dropout, self.node_dropout_rate)
 
         # entity_res_emb = torch.add(entity_res_emb, entity_agg)
         # user_res_emb = torch.add(user_res_emb, user_agg)
@@ -218,7 +217,7 @@ class GraphConv(nn.Module):
         entity_emb, user_emb, item_emb_cf = self.convs(entity_agg, user_agg, item_agg_cf,
                                             edge_index, edge_type, interact_mat,
                                             self.relation_weight, flag)                                
-        entity_agg, user_agg, item_agg_cf = self.Dr_Norm(user_emb, entity_emb, item_emb_cf, mess_dropout, 0.03)
+        entity_agg, user_agg, item_agg_cf = self.Dr_Norm(user_emb, entity_emb, item_emb_cf, mess_dropout, self.node_dropout_rate)
 
         # entity_res_emb = torch.add(entity_res_emb, entity_agg)
         # user_res_emb = torch.add(user_res_emb, user_agg)
@@ -257,7 +256,7 @@ class Recommender(nn.Module):
         self.node_dropout = args_config.node_dropout
         self.node_dropout_rate = args_config.node_dropout_rate
         self.mess_dropout = args_config.mess_dropout
-        self.mess_dropout_rate = args_config.mess_dropout_rate
+        self.edge_sampling_rate = args_config.edge_sampling_rate
         self.loss_f = args_config.loss_f
         self.device = torch.device("cuda:" + str(args_config.gpu_id)) if args_config.cuda \
                                                                       else torch.device("cpu")
@@ -288,7 +287,7 @@ class Recommender(nn.Module):
                          interact_mat=self.interact_mat,
                          device=self.device,
                          node_dropout_rate=self.node_dropout_rate,
-                         mess_dropout_rate=self.mess_dropout_rate)
+                         edge_sampling_rate=self.edge_sampling_rate)
 
     def _convert_sp_mat_to_sp_tensor(self, X):
         coo = X.tocoo()
@@ -445,137 +444,6 @@ class Recommender(nn.Module):
         cf_loss = -1 * torch.mean(nn.LogSigmoid()
                                   (hyper_neg_dis - hyper_pos_dis))
         return cf_loss
-
-
-    # def plot(self, ax, u_emb, item_emb, item_list, flag, isflag):
-    #     L = 3000
-    #     i_emb = torch.cat((item_emb[:L],u_emb),0)
-    #     tsne = TSNE(n_components=2)
-    #     tsne.fit_transform(i_emb.detach().cpu())
-    #     x = tsne.embedding_[:, 0]
-    #     y = tsne.embedding_[:, 1]
-
-    #     for i in range(L):
-    #         if i in item_list:
-    #             ax.scatter(x[i], y[i], c='b', s=1000, edgecolor = 'black')
-    #         else:
-    #             ax.scatter(x[i], y[i], c='deepskyblue', alpha = 0.3, s=500, edgecolor = 'black')
-    #     ax.scatter(x[L], y[L], c='red', s=1500, edgecolor = 'black')
-    #     if isflag:
-    #         ax.set_title(flag, fontsize=90, color='black')
-    #     plt.yticks([])
-    #     plt.xticks([])  
-
-
-    # def visualize(self, user_set):
-    #     user_emb = self.all_embed[:self.n_users, :]
-    #     entity_emb = self.all_embed[self.n_users:, :]
-    #     with torch.no_grad():
-    #         entity_emb[:self.n_items] += self.item_emb_cf
-    #     entity_gcn_emb, user_gcn_emb = self.generate()
-
-    #     user = 7
-    #     item_list = user_set[user]
-    #     print(item_list)
-    #     u_emb1 = user_emb[user].view(1,-1)
-    #     u_emb2 = user_gcn_emb[user].view(1,-1)
-    #     plt.figure(figsize = (90, 40), dpi = 300)
-    #     ax1 = plt.subplot(231)
-    #     self.plot(ax1, u_emb1, entity_emb[:self.n_items], item_list, "User "+str(user), True)
-    #     ax2 = plt.subplot(234)
-    #     self.plot(ax2, u_emb2, entity_gcn_emb[:self.n_items], item_list, "User "+str(user), False)
-
-    #     user = 11
-    #     item_list = user_set[user]
-    #     print(item_list)
-    #     u_emb1 = user_emb[user].view(1,-1)
-    #     u_emb2 = user_gcn_emb[user].view(1,-1)
-    #     ax3 = plt.subplot(232)
-    #     self.plot(ax3, u_emb1, entity_emb[:self.n_items], item_list, "User "+str(user), True)
-    #     ax4 = plt.subplot(235)
-    #     self.plot(ax4, u_emb2, entity_gcn_emb[:self.n_items], item_list, "User "+str(user), False)
-
-
-    #     user = 12
-    #     item_list = user_set[user]
-    #     print(item_list)
-    #     u_emb1 = user_emb[user].view(1,-1)
-    #     u_emb2 = user_gcn_emb[user].view(1,-1)
-    #     ax5 = plt.subplot(233)
-    #     self.plot(ax5, u_emb1, entity_emb[:self.n_items], item_list, "User "+str(user), True)
-    #     ax6 = plt.subplot(236)
-    #     self.plot(ax6, u_emb2, entity_gcn_emb[:self.n_items], item_list, "User "+str(user), False)
-
-    #     plt.tight_layout(pad=12,h_pad=12,w_pad=36.0)  
-    #     plt.savefig('./visualization/'+'Last-Fm.jpg')
-    #     plt.close()
-
-
-    def plot(self, ax, u_emb, item_emb, item_list, flag, isflag):
-        L = 8000
-        i_emb = torch.cat((item_emb[:L],u_emb),0)
-        tsne = TSNE(n_components=2)
-        tsne.fit_transform(i_emb.detach().cpu())
-        x = tsne.embedding_[:, 0]
-        y = tsne.embedding_[:, 1]
-
-        for i in range(L):
-            if i in item_list:
-                ax.scatter(x[i], y[i], c='b', s=500, edgecolor = 'black')
-            else:
-                ax.scatter(x[i], y[i], c='deepskyblue', alpha = 0.1, s=100, edgecolor = 'black')
-        ax.scatter(x[L], y[L], c='red', s=800, edgecolor = 'black')
-        if isflag:
-            ax.set_title(flag, fontsize=60, color='black')
-        plt.yticks([])
-        plt.xticks([])  
-
-
-    # def visualize(self, user_set):
-    #     user_emb = self.all_embed[:self.n_users, :]
-    #     entity_emb = self.all_embed[self.n_users:, :]
-    #     with torch.no_grad():
-    #         entity_emb[:self.n_items] += self.item_emb_cf
-    #     entity_gcn_emb, user_gcn_emb = self.generate()
-
-    #     for i in range(20):
-    #         user = i
-    #         item_list = user_set[user]
-    #         print(item_list)
-    #         u_emb1 = user_emb[user].view(1,-1)
-    #         u_emb2 = user_gcn_emb[user].view(1,-1)
-    #         plt.figure(figsize = (15, 25), dpi = 300)
-    #         ax1 = plt.subplot(211)
-    #         self.plot(ax1, u_emb1, entity_emb[:self.n_items], item_list, "User "+str(user), True)
-    #         ax2 = plt.subplot(212)
-    #         self.plot(ax2, u_emb2, entity_gcn_emb[:self.n_items], item_list, "User "+str(user), False)
-    #         plt.savefig('./visualization/train/'+str(user)+'.jpg')
-    #         plt.close()
-
-
-    def visualize1(self, ax, user, user_set):
-        user_emb = self.all_embed[:self.n_users, :]
-        entity_emb = self.all_embed[self.n_users:, :]
-        with torch.no_grad():
-            entity_emb[:self.n_items] += self.item_emb_cf
-
-        item_list = user_set[user]
-        print(item_list)
-        u_emb = user_emb[user].view(1,-1)
-        self.plot(ax, u_emb, entity_emb[:self.n_items], item_list, "User "+str(user), False)
-
-
-
-    def visualize2(self, ax, user, user_set):
-        entity_gcn_emb, user_gcn_emb = self.generate()
-
-        item_list = user_set[user]
-        print(item_list)
-        u_emb = user_gcn_emb[user].view(1,-1)
-        self.plot(ax, u_emb, entity_gcn_emb[:self.n_items], item_list, "User "+str(user), False)
-
-
-
 
 
 
